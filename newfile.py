@@ -26,7 +26,7 @@ from reportlab.lib.pagesizes import A4
 from PIL import Image, ImageDraw, ImageFont
 
 # ================= SOZLAMALAR =================
-API_TOKEN = os.getenv("API_TOKEN")  # GitHub safe uchun .env dan oling
+API_TOKEN = os.getenv("7773701126:AAEIsIWkcerz8URbr1R3SBNuJrvAfBeIqzs")  # GitHub safe uchun .env dan oling
 ADMIN_ID = int(os.getenv("ADMIN_ID", 7751709985))
 CHANNEL_USERNAME = "@Tarixchilar_1IDUM"
 
