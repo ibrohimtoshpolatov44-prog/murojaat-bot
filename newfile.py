@@ -26,8 +26,8 @@ from reportlab.lib.pagesizes import A4
 from PIL import Image, ImageDraw, ImageFont
 
 # ================= SOZLAMALAR =================
-API_TOKEN = "7773701126:AAEIsIWkcerz8URbr1R3SBNuJrvAfBeIqzs"
-ADMIN_ID = 7751709985
+API_TOKEN = os.getenv("API_TOKEN")  # GitHub safe uchun .env dan oling
+ADMIN_ID = int(os.getenv("ADMIN_ID", 7751709985))
 CHANNEL_USERNAME = "@Tarixchilar_1IDUM"
 
 TEST_URL = "https://ibrohimtoshpolatov44-prog.github.io/Milliy_Sertifikat_Tarix1/"
@@ -208,8 +208,11 @@ async def main():
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 10000)
+    
+    port = int(os.environ.get("PORT", 10000))  # Render $PORT
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
+    
     await asyncio.gather(dp.start_polling(bot), keep_alive())
 
 if __name__ == "__main__":
