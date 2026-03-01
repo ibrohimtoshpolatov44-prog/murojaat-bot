@@ -27,7 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ================= SOZLAMALAR =================
 # Xavfsizlik uchun tokenni o'zgaruvchidan olamiz
-API_TOKEN = os.getenv("7773701126:AAEIsIWkcerz8URbr1R3SBNuJrvAfBeIqzs") 
+API_TOKEN = os.getenv("7773701126:AAFX4uHDUo3y1brZa1Y84OUA7SOCaJr1Zic") 
 ADMIN_ID = int(os.getenv("ADMIN_ID", 7751709985))
 CHANNEL_USERNAME = "@Tarixchilar_1IDUM"
 
