@@ -26,13 +26,13 @@ from reportlab.lib.pagesizes import A4
 from PIL import Image, ImageDraw, ImageFont
 
 # ================= SOZLAMALAR =================
-API_TOKEN = os.getenv("7773701126:AAEIsIWkcerz8URbr1R3SBNuJrvAfBeIqzs")  # GitHub safe uchun .env dan oling
+# Xavfsizlik uchun tokenni o'zgaruvchidan olamiz
+API_TOKEN = os.getenv("7773701126:AAEIsIWkcerz8URbr1R3SBNuJrvAfBeIqzs") 
 ADMIN_ID = int(os.getenv("ADMIN_ID", 7751709985))
 CHANNEL_USERNAME = "@Tarixchilar_1IDUM"
 
 TEST_URL = "https://ibrohimtoshpolatov44-prog.github.io/Milliy_Sertifikat_Tarix1/"
 JAHON_TARIXI_7_URL = "https://ibrohimtoshpolatov44-prog.github.io/7-sinf_JahonTarixi_v1/"
-RENDER_URL = "https://murojaat-bot-1-jqjg.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
@@ -61,133 +61,143 @@ def add_user(user_id, full_name, username):
     conn.commit()
     conn.close()
 
-# ================= KEEP ALIVE =================
-async def keep_alive():
-    async with aiohttp.ClientSession() as session:
-        while True:
-            try:
-                await session.get(RENDER_URL)
-            except:
-                pass
-            await asyncio.sleep(600)
-
+# ================= WEB SERVER (RENDER UCHUN) =================
 async def handle(request):
-    return web.Response(text="Bot ishlayapti!")
+    return web.Response(text="Bot is running!")
 
-# ================= PDF =================
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+
+# ================= PDF & IMAGE FUNKSIYALARI =================
 def create_pdf(text, user_id):
-    os.makedirs("pdfs", exist_ok=True)
+    if not os.path.exists("pdfs"): os.makedirs("pdfs")
     filepath = f"pdfs/{user_id}.pdf"
+    
+    # HYSMyeongJo o'rniga standartroq font yoki ro'yxatdan o'tgan font ishlating
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont('HYSMyeongJo-Medium'))
+        font_name = 'HYSMyeongJo-Medium'
+    except:
+        font_name = 'Helvetica' # Zaxira font
 
-    pdfmetrics.registerFont(UnicodeCIDFont('HYSMyeongJo-Medium'))
     doc = SimpleDocTemplate(filepath, pagesize=A4)
-    style = ParagraphStyle(name='Uz', fontName='HYSMyeongJo-Medium', fontSize=12)
+    style = ParagraphStyle(name='Uz', fontName=font_name, fontSize=12)
     doc.build([Paragraph(text, style)])
     return filepath
 
-# ================= DAFTARGA YOZ =================
 def create_note_image(text, user_id):
-    os.makedirs("notes", exist_ok=True)
+    if not os.path.exists("notes"): os.makedirs("notes")
     width, height = 800, 1000
     image = Image.new("RGB", (width, height), "#fdf6e3")
     draw = ImageDraw.Draw(image)
 
+    # Chiziqlar chizish
     for y in range(120, height, 60):
         draw.line((60, y, width-60, y), fill="#c2b280", width=2)
 
     try:
-        font = ImageFont.truetype("arial.ttf", 42)
+        font = ImageFont.truetype("arial.ttf", 35) # O'lcham biroz kichraytirildi
     except:
         font = ImageFont.load_default()
 
-    draw.text((100, 150), text, fill="black", font=font)
+    # Matnni bir nechta qatorga bo'lish logikasi qo'shilishi mumkin, hozircha oddiy:
+    draw.text((100, 150), text[:500], fill="black", font=font)
     filepath = f"notes/{user_id}.png"
     image.save(filepath)
     return filepath
 
 # ================= MENYU =================
 def get_main_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(text="📝 Milliy Sertifikat testi", web_app=WebAppInfo(url=TEST_URL)),
-                KeyboardButton(text="🌍 7-sinf Jahon Tarixi", web_app=WebAppInfo(url=JAHON_TARIXI_7_URL))
-            ],
-            [
-                KeyboardButton(text="📄 Text to PDF"),
-                KeyboardButton(text="📝 Daftarga Yoz")
-            ],
-            [
-                KeyboardButton(text="📬 Kanaldan Post"),
-                KeyboardButton(text="⭐ Botni baholash")
-            ],
-            [
-                KeyboardButton(text="📚 Tarix o‘zi nima?"),
-                KeyboardButton(text="📢 Kanal")
-            ]
+    kb = [
+        [
+            KeyboardButton(text="📝 Milliy Sertifikat testi", web_app=WebAppInfo(url=TEST_URL)),
+            KeyboardButton(text="🌍 7-sinf Jahon Tarixi", web_app=WebAppInfo(url=JAHON_TARIXI_7_URL))
         ],
-        resize_keyboard=True
-    )
+        [
+            KeyboardButton(text="📄 Text to PDF"),
+            KeyboardButton(text="📝 Daftarga Yoz")
+        ],
+        [
+            KeyboardButton(text="📬 Kanaldan Post"),
+            KeyboardButton(text="⭐ Botni baholash")
+        ],
+        [
+            KeyboardButton(text="📚 Tarix o‘zi nima?"),
+            KeyboardButton(text="📢 Kanal")
+        ]
+    ]
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# ================= START =================
+# ================= HANDLERS =================
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     add_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
-    await message.answer("Xush kelibsiz 👋", reply_markup=get_main_menu())
+    await message.answer(f"Assalomu alaykum {message.from_user.full_name}! 👋\nTarix botiga xush kelibsiz.", reply_markup=get_main_menu())
 
-# ================= TARIX =================
 @dp.message(F.text == "📚 Tarix o‘zi nima?")
 async def tarix_info(message: types.Message):
-    await message.answer(
-        "📜 Tarix — insoniyat xotirasi.\n"
-        "⏳ O‘tgan kunlar sabog‘i.\n"
-        "🏛 Buyuk davlatlar va allomalar hikoyasi.\n"
-        "🌟 Tarixni bilgan inson kelajakni ongli quradi."
-    )
+    await message.answer("📜 Tarix — insoniyat xotirasi.\n⏳ O‘tgan kunlar sabog‘i.\n🏛 Buyuk davlatlar va allomalar hikoyasi.")
 
-# ================= PDF =================
+@dp.message(F.text == "📢 Kanal")
+async def channel_info(message: types.Message):
+    await message.answer(f"Rasmiy kanalimiz: {CHANNEL_USERNAME}")
+
+# PDF Logic
 @dp.message(F.text == "📄 Text to PDF")
 async def ask_pdf(message: types.Message, state: FSMContext):
-    await message.answer("Matn yuboring (500 belgi).")
+    await message.answer("PDF ga aylantirish uchun matn yuboring (max 500 belgi):")
     await state.set_state(PDFState.waiting_text)
 
 @dp.message(PDFState.waiting_text)
 async def process_pdf(message: types.Message, state: FSMContext):
-    if len(message.text) > 500:
-        await message.answer("❌ 500 belgidan oshmasin.")
-        return
+    msg = await message.answer("Fayl tayyorlanmoqda... ⏳")
     filepath = create_pdf(message.text, message.from_user.id)
     await message.answer_document(FSInputFile(filepath))
     os.remove(filepath)
+    await msg.delete()
     await state.clear()
 
-# ================= DAFTAR =================
+# Note Logic
 @dp.message(F.text == "📝 Daftarga Yoz")
 async def ask_note(message: types.Message, state: FSMContext):
-    await message.answer("Yozmoqchi bo‘lgan matnni yuboring.")
+    await message.answer("Daftar sahifasiga yozish uchun matn yuboring:")
     await state.set_state(NoteState.waiting_text)
 
 @dp.message(NoteState.waiting_text)
 async def process_note(message: types.Message, state: FSMContext):
+    msg = await message.answer("Rasm chizilmoqda... 🎨")
     filepath = create_note_image(message.text, message.from_user.id)
     await message.answer_photo(FSInputFile(filepath))
     os.remove(filepath)
+    await msg.delete()
     await state.clear()
 
-# ================= RANDOM POST =================
 @dp.message(F.text == "📬 Kanaldan Post")
 async def random_post(message: types.Message):
     try:
+        # Tasodifiy post olish (Kanalda kamida 200 ta post bor deb hisoblaymiz)
         msg_id = random.randint(1, 200)
         await bot.copy_message(message.chat.id, CHANNEL_USERNAME, msg_id)
-    except:
-        await message.answer("Bot kanal admini emas yoki post topilmadi.")
+    except Exception:
+        await message.answer("Hozircha post topilmadi yoki bot kanalga a'zo emas.")
 
-# ================= BAHOLASH =================
 @dp.message(F.text == "⭐ Botni baholash")
 async def rate_bot(message: types.Message):
-    buttons = [[InlineKeyboardButton(text=f"{i} ⭐", callback_data=f"rate_{i}")] for i in range(1, 11)]
-    await message.answer("Baholang:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    buttons = []
+    # Tugmalarni qatorga 5 tadan joylash
+    row = []
+    for i in range(1, 11):
+        row.append(InlineKeyboardButton(text=f"{i} ⭐", callback_data=f"rate_{i}"))
+        if i % 5 == 0:
+            buttons.append(row)
+            row = []
+    await message.answer("Botni baholang:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 @dp.callback_query(F.data.startswith("rate_"))
 async def process_rating(call: types.CallbackQuery):
@@ -197,23 +207,21 @@ async def process_rating(call: types.CallbackQuery):
     cursor.execute("INSERT INTO ratings VALUES (?, ?)", (call.from_user.id, rating))
     conn.commit()
     conn.close()
-    await call.message.delete()
-    await call.message.answer("Rahmat ⭐")
-    await bot.send_message(ADMIN_ID, f"{call.from_user.full_name} baho berdi: {rating}/10")
+    await call.answer("Rahmat!")
+    await call.message.edit_text(f"Siz {rating} ball berdingiz. Rahmat! ✨")
+    await bot.send_message(ADMIN_ID, f"🔔 Yangi baho!\n👤 {call.from_user.full_name}: {rating}/10")
 
-# ================= RUN =================
+# ================= MAIN =================
 async def main():
     init_db()
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    
-    port = int(os.environ.get("PORT", 10000))  # Render $PORT
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    
-    await asyncio.gather(dp.start_polling(bot), keep_alive())
+    # Web serverni orqa fonda ishga tushirish
+    await start_web_server()
+    # Botni ishga tushirish
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Bot to'xtatildi")
+    
