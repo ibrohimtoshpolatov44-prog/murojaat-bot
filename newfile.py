@@ -1,30 +1,24 @@
 import asyncio
 import logging
 import sqlite3
-import time
 import os
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton, 
-                            InlineKeyboardMarkup, InlineKeyboardButton, PollAnswer)
+                            InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo)
 
-# --- SOZLAMALAR ---
-API_TOKEN = '7773701126:AAFX4uHDUo3y1brZa1Y84OUA7SOCaJr1Zic'
-CH_ID = "@Tarixchilar_1IDUM"
+# --- KONFIGURATSIYA ---
+API_TOKEN = '8355287889:AAGtPbz-CFURIHLV7xyxRd0qa9i09Ul5Oqo'
+CHANNELS = ["@Tarixchilar_1IDUM", "@appzumer"]
 ADMIN_ID = 7751709985
 PORT = int(os.environ.get("PORT", 10000))
-
-BTN_QUIZ = "1. Milliy Sertifikat 📝"
-BTN_CHAN = "2. Bizning kanal 📢"
-BTN_RATE = "5. Botni baholash ⭐"
-BTN_ADD  = "➕ Savol qo'shish"
+WEB_APP_URL = "https://ibrohimtoshpolatov44-prog.github.io/Tarixchi/"
 
 logging.basicConfig(level=logging.INFO)
-
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -43,7 +37,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- WEB SERVER ---
+# --- CRON-JOB UCHUN WEB SERVER (UHLAB QOLMASLIK UCHUN) ---
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
 
@@ -55,133 +49,71 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
+# --- OBUNANI TEKSHIRISH ---
+async def check_subscription(user_id):
+    for channel in CHANNELS:
+        try:
+            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            if member.status in ["left", "kicked"]:
+                return False
+        except Exception:
+            return False
+    return True
+
 # --- TUGMALAR ---
 def get_menu(user_id):
     kb = [
-        [KeyboardButton(text=BTN_QUIZ)],
-        [KeyboardButton(text=BTN_CHAN)],
-        [KeyboardButton(text=BTN_RATE)]
+        [KeyboardButton(text="1. Milliy Sertifikat 📝")],
+        [KeyboardButton(text="2. Bizning kanal 📢"), KeyboardButton(text="3. Mini Ilova 📱")],
+        [KeyboardButton(text="5. Botni baholash ⭐")]
     ]
     if user_id == ADMIN_ID:
-        kb.append([KeyboardButton(text=BTN_ADD)])
+        kb.append([KeyboardButton(text="➕ Savol qo'shish")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# --- START ---
+def get_sub_buttons():
+    btns = [[InlineKeyboardButton(text=f"Obuna bo'lish {ch}", url=f"https://t.me/{ch[1:]}")] for ch in CHANNELS]
+    btns.append([InlineKeyboardButton(text="Tekshirish ✅", callback_data="sub_check")])
+    return InlineKeyboardMarkup(inline_keyboard=btns)
+
+# --- HANDLERLAR ---
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    await message.answer(
-        "Tarix fanidan Quiz botiga xush kelibsiz!",
-        reply_markup=get_menu(message.from_user.id)
-    )
-
-# --- QUIZ ---
-@dp.message(F.text == BTN_QUIZ)
-async def start_quiz(message: types.Message):
-    conn = sqlite3.connect('tarix_quiz.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM questions")
-    questions = cursor.fetchall()
-    conn.close()
-
-    if not questions:
-        await message.answer("Hozircha bazada savollar yo'q. Admin savol qo'shishi kerak.")
+    if not await check_subscription(message.from_user.id):
+        await message.answer("Botdan foydalanish uchun kanallarga obuna bo'ling:", reply_markup=get_sub_buttons())
         return
+    await message.answer("Xush kelibsiz!", reply_markup=get_menu(message.from_user.id))
 
-    await message.answer(f"Viktorina boshlandi! Savollar soni: {len(questions)}")
+@dp.callback_query(F.data == "sub_check")
+async def sub_check_callback(call: types.CallbackQuery):
+    if await check_subscription(call.from_user.id):
+        await call.message.delete()
+        await call.message.answer("Obuna tasdiqlandi!", reply_markup=get_menu(call.from_user.id))
+    else:
+        await call.answer("Hali obuna bo'lmagansiz! ❌", show_alert=True)
 
-    for q in questions:
-        await bot.send_poll(
-            chat_id=message.chat.id,
-            question=q[1],
-            options=q[2].split(","),
-            type='quiz',
-            correct_option_id=int(q[3]),
-            open_period=30,
-            is_anonymous=False
-        )
-        await asyncio.sleep(31)
-
-# --- KANAL ---
-@dp.message(F.text == BTN_CHAN)
-async def show_chan(message: types.Message):
-    await message.answer(f"Bizning kanal: {CH_ID}\nLink: https://t.me/{CH_ID[1:]}")
-
-# --- BAHOLASH ---
-@dp.message(F.text == BTN_RATE)
-async def rate_bot(message: types.Message):
-    btns = [
-        [InlineKeyboardButton(text=str(i), callback_data=f"r_{i}") for i in range(1,6)],
-        [InlineKeyboardButton(text=str(i), callback_data=f"r_{i}") for i in range(6,11)]
-    ]
-
-    await message.answer(
-        "Botni baholang:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=btns)
-    )
-
-@dp.callback_query(F.data.startswith("r_"))
-async def process_rate(call: types.CallbackQuery):
-    await call.message.edit_text("Bahoyingiz uchun rahmat! ✨")
-
-# --- ADMIN ---
-@dp.message(F.text == BTN_ADD)
-async def admin_add(message: types.Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID:
+@dp.message(F.text == "3. Mini Ilova 📱")
+async def open_mini_app(message: types.Message):
+    if not await check_subscription(message.from_user.id):
+        await message.answer("Avval obuna bo'ling!", reply_markup=get_sub_buttons())
         return
-
-    await message.answer("Yangi savolni yuboring:")
-    await state.set_state(AdminState.waiting_for_question)
-
-@dp.message(AdminState.waiting_for_question)
-async def proc_q(message: types.Message, state: FSMContext):
-    await state.update_data(q=message.text)
-
-    await message.answer(
-        "Variantlarni vergul bilan yuboring (masalan: 1336,1405,1200)"
-    )
-
-    await state.set_state(AdminState.waiting_for_options)
-
-@dp.message(AdminState.waiting_for_options)
-async def proc_o(message: types.Message, state: FSMContext):
-    await state.update_data(o=message.text)
-
-    await message.answer(
-        "To'g'ri javob indeksini yuboring (0 dan boshlanadi)"
-    )
-
-    await state.set_state(AdminState.waiting_for_correct_id)
-
-@dp.message(AdminState.waiting_for_correct_id)
-async def proc_c(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-
-    conn = sqlite3.connect('tarix_quiz.db')
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO questions (question, options, correct_id) VALUES (?, ?, ?)",
-        (data['q'], data['o'], int(message.text))
-    )
-
-    conn.commit()
-    conn.close()
-
-    await message.answer(
-        "✅ Savol saqlandi!",
-        reply_markup=get_menu(message.from_user.id)
-    )
-
-    await state.clear()
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Ilovani ochish 🚀", web_app=WebAppInfo(url=WEB_APP_URL))]
+    ])
+    await message.answer("Tarixiy mini ilovangizni ishga tushiring:", reply_markup=kb)
 
 # --- MAIN ---
 async def main():
     init_db()
-
-    await asyncio.gather(
-        start_web_server(),
-        dp.start_polling(bot)
-    )
+    # Web serverni cron-job uchun alohida task qilib ishga tushiramiz
+    asyncio.create_task(start_web_server())
+    # Botni ishga tushirish
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
+          
