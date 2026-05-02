@@ -12,7 +12,7 @@ from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton,
                             InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo)
 
 # --- KONFIGURATSIYA ---
-API_TOKEN = '7773701126:AAFX4uHDUo3y1brZa1Y84OUA7SOCaJr1Zic'
+API_TOKEN = '7773701126:AAGWC3SNwHBTmkxBtAuU2HaDKl2gX3CfmIY'
 CHANNELS = ["@Tarixchilar_1IDUM", "@appzumer"]
 ADMIN_ID = 7751709985
 PORT = int(os.environ.get("PORT", 10000))
