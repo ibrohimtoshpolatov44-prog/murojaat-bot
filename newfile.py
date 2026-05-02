@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from aiohttp import web
+
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -10,7 +11,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 )
 
-# --- KONFIGURATSIYA ---
+# --- KONFIG ---
 API_TOKEN = "8465608102:AAF_WROmWkVd06dCdV0_cbYqUNhYUk8_ThY"
 CHANNELS = [ "@appzumer"]
 PORT = int(os.environ.get("PORT", 10000))
@@ -21,23 +22,35 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# --- WEB SERVER (Render uxlamasligi uchun) ---
+# --- WEB SERVER (CRON-JOB ENDPOINT) ---
 async def handle_ping(request):
-    return web.Response(text="Bot is live!")
+    return web.json_response({"status": "ok"})
+
+async def handle_root(request):
+    return web.Response(text="Bot is running")
 
 async def start_web_server():
     app = web.Application()
-    app.router.add_get("/", handle_ping)
+
+    # 🔥 CRON-JOB SHU URLGA URADI:
+    app.router.add_get("/ping", handle_ping)
+
+    # optional home page
+    app.router.add_get("/", handle_root)
+
     runner = web.AppRunner(app)
     await runner.setup()
+
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
+
+    logging.info(f"Web server started on port {PORT}")
 
 # --- OBUNA TEKSHIRISH ---
 async def check_subscription(user_id):
     for channel in CHANNELS:
         try:
-            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            member = await bot.get_chat_member(channel, user_id)
             if member.status in ["left", "kicked"]:
                 return False
         except:
