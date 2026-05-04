@@ -13,7 +13,7 @@ from aiogram.types import (
 
 # --- KONFIG ---
 API_TOKEN = "8465608102:AAF_WROmWkVd06dCdV0_cbYqUNhYUk8_ThY"
-CHANNELS = [ "@appzumer"]
+CHANNELS = [ "@Tarixchilar_1IDUM","@appzumer"]
 PORT = int(os.environ.get("PORT", 10000))
 WEB_APP_URL = "https://ibrohimtoshpolatov44-prog.github.io/Tarixchi/"
 
